@@ -5,10 +5,18 @@ description = "Computational Intelligence"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
 [tool.poetry.dependencies]
 python = "^3.10"
-numpy = "2.1.1"
-
+torch = {version = "2.2.2", source = "pytorch-cpu"}
+tqdm = "4.66.5"
+scikit-learn = "1.5.2"
+numpy = "1.24.2"
+pandas = "1.5.2"
 
 [build-system]
 requires = ["poetry-core"]
