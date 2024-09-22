@@ -1,7 +1,10 @@
-import random
+from copy import deepcopy
 
-import numpy as np
-from typing import Callable, List, Dict, Any, Optional
+from typing import List, Optional
+
+import torch
+from torch import nn
+from torch import Tensor
 
 from optimizers.base import BaseOptimizer
 
@@ -12,87 +15,93 @@ class GeneticOptimizer(BaseOptimizer):
 
     population_size: int
     mutation_rate: float
-
+    mutation_decay: float
     """
 
-    def __init__(self, population_size: int, mutation_rate: float, **kwargs) -> None:
+    def __init__(
+        self,
+        population_size: int,
+        mutation_rate: float,
+        model: nn.Module,
+        loss: nn.functional,
+        mutation_decay: Optional[float] = 0.05,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.population_size = population_size
         self.mutation_rate = mutation_rate
-        self._population = list()
-        self._num_runs = 0
+        self.loss = loss
+        self.mutation_decay = mutation_decay
+        self._scores = torch.zeros(self.population_size)
+        self._cum_sum = torch.zeros(self.population_size)
+        self._model = model
+        self._in_features = self._model._model[0].in_features
+        self._population = self.init_population()
+        self._gen_num = 0
 
-    def init_population(
-        self, weights_init: Callable, init_params: Dict[str, Any]
-    ) -> List[np.array]:
+    @property
+    def best_model(self) -> nn.Module:
+        return self.select()[0]
+
+    def init_population(self) -> List[nn.Module]:
+        return [self._model.__class__(self._in_features).eval() for _ in range(self.population_size)]
+
+    def set_fitness(self, x: Tensor, y: Tensor):
+        scores = torch.tensor([1 / (self.loss(gen(x), y).item() + 1e-6) for gen in self._population])
+        self._scores = scores / (scores.sum() + 1e-6)
+        self._cum_sum = scores.cumsum(dim=0)
+
+    def roulette_wheel_select(self, parent: int) -> nn.Module:
+        while True:
+            prob = torch.rand(1).item()
+            idx = torch.searchsorted(self._cum_sum, prob)
+            if idx != parent and idx < len(self._population):
+                return self._population[idx]
+
+    def crossover(self):
         for i in range(self.population_size):
-            self._population[i] = weights_init(**init_params)
+            parent1 = self._population[i]
+            parent2 = self.roulette_wheel_select(i)
 
+            child1 = self._model.__class__(self._in_features)
+            child2 = self._model.__class__(self._in_features)
+
+            child1.load_state_dict(parent1.state_dict())
+            child2.load_state_dict(parent2.state_dict())
+
+            for param1, param2 in zip(child1.parameters(), child2.parameters()):
+              swap_mask = (torch.rand_like(param1) > 0.5)
+              temp = param1.data[swap_mask].clone()
+              param1.data[swap_mask] = param2.data[swap_mask]
+              param2.data[swap_mask] = temp
+
+            # todo: ask whether it's correct to add new generation
+            #  to previous population (roulette selection with new children)
+            self._population.append(child1)
+            self._population.append(child2)
+
+    def mutate(self):
+        decay_factor = torch.exp(torch.tensor(-self.mutation_decay * self._gen_num))
+        for model in self._population:
+            for param in model.parameters():
+                noise = torch.empty_like(param).uniform_(-self.mutation_rate, self.mutation_rate)
+                xi = noise * decay_factor
+                param.data += xi
+
+    def select(self):
+        best = torch.argsort(self._scores.clone(), descending=True)[:self.population_size].tolist()
+        self._population = [self._population[i] for i in best]
         return self._population
 
-    def get_scores(self, loss: Callable, x: np.array, y: np.array) -> List[float]:
-        return [loss(gen, x, y) for gen in self._population]
+    def run(self, x: Tensor, y: Tensor, **kwargs) -> nn.Module:
+        self._gen_num += 1
 
-    @classmethod
-    def crossover(cls, parent1: np.array, parent2: np.array) -> np.array:
-        assert len(parent1) == len(parent2), "parents have different size"
+        self.set_fitness(x=x, y=y)
+        self.select()
 
-        start, end = sorted(random.sample(range(len(parent1)), 2))
-        child_p1 = parent1[start:end]
-        child_p2 = [gene for gene in parent2 if gene not in child_p1]
+        self.crossover()
+        self.mutate()
 
-        return np.concatenate((child_p1, child_p2))
+        self.set_fitness(x=x, y=y)
 
-    def breed(self, population: np.array) -> np.array:
-        random.shuffle(population)
-
-        for i in range(len(population) // 2):
-            children = self.crossover(population[i], population[i + 1])
-            population.append(children)
-
-        return population
-
-    def mutate(self, population: np.array) -> np.array:
-        random.shuffle(population)
-        num_creatures = len(population)
-        num_features = len(population[0])
-
-        mutated = random.sample(range(num_creatures), int(self.mutation_rate * num_creatures))
-
-        for i in mutated:
-            creature = population[i]
-            for _ in range(int(self.mutation_rate * num_features)):
-                idx1, idx2 = random.sample(range(num_features), 2)
-                creature[idx1], creature[idx2] = creature[idx2], creature[idx1]
-
-        return population
-
-    def select(self, population: np.array, scores: List[float]) -> np.array:
-        best = np.array(scores).argsort()[:self.population_size].tolist()
-        return np.array(population)[best]
-
-    def run(
-        self,
-        loss: Callable,
-        x: np.array,
-        y: np.array,
-        weights_init: Optional[Callable] = None,
-        init_params: Optional[Dict[str, Any]] = None,
-        **kwargs
-    )  -> np.array:
-        if len(self._population) == 0:
-            if weights_init is None or init_params is None:
-                raise ValueError("weight_init(**init_params) is needed to create the population.")
-
-            self._population = self.init_population(
-                weights_init=weights_init, init_params=init_params
-            )
-
-        population = self.mutate(self._population)
-        population = self.breed(population)
-        scores = self.get_scores(loss, x, y)
-        population = self.select(population, scores)
-
-        self._num_runs += 1
-
-        return population
+        return self.best_model
