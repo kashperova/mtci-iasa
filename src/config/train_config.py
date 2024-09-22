@@ -9,4 +9,4 @@ class BaseTrainConfig:
 
 
 class GeneticConfig(BaseTrainConfig):
-    num_generations: int = 20
+    epochs: int = 500

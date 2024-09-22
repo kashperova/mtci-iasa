@@ -15,6 +15,7 @@ class GeneticOptimizer(BaseOptimizer):
 
     population_size: int
     mutation_rate: float
+    mutation_decay: float
     """
 
     def __init__(
@@ -33,15 +34,17 @@ class GeneticOptimizer(BaseOptimizer):
         self.mutation_decay = mutation_decay
         self._scores = torch.zeros(self.population_size)
         self._cum_sum = torch.zeros(self.population_size)
-        self._population = self.init_population(model)
+        self._model = model
+        self._in_features = self._model._model[0].in_features
+        self._population = self.init_population()
         self._gen_num = 0
 
     @property
     def best_model(self) -> nn.Module:
         return self.select()[0]
 
-    def init_population(self, model: nn.Module) -> List[nn.Module]:
-        return [deepcopy(model).eval() for _ in range(self.population_size)]
+    def init_population(self) -> List[nn.Module]:
+        return [self._model.__class__(self._in_features).eval() for _ in range(self.population_size)]
 
     def set_fitness(self, x: Tensor, y: Tensor):
         scores = torch.tensor([1 / (self.loss(gen(x), y).item() + 1e-6) for gen in self._population])
@@ -55,24 +58,22 @@ class GeneticOptimizer(BaseOptimizer):
             if idx != parent and idx < len(self._population):
                 return self._population[idx]
 
-    @classmethod
-    def crossover(cls, parent1: nn.Module, parent2: nn.Module) -> nn.Module:
-        child = deepcopy(parent1)
-
-        for param1, param2, param_child in zip(parent1.parameters(), parent2.parameters(), child.parameters()):
-            swap_mask = (torch.rand_like(param1) > 0.5)
-            param_child.data[swap_mask] = param2.data[swap_mask]
-            param_child.data[~swap_mask] = param1.data[~swap_mask]
-
-        return child
-
-    def breed(self):
+    def crossover(self):
         for i in range(self.population_size):
             parent1 = self._population[i]
             parent2 = self.roulette_wheel_select(i)
 
-            child1 = self.crossover(parent1, parent2)
-            child2 = self.crossover(parent2, parent1)
+            child1 = self._model.__class__(self._in_features)
+            child2 = self._model.__class__(self._in_features)
+
+            child1.load_state_dict(parent1.state_dict())
+            child2.load_state_dict(parent2.state_dict())
+
+            for param1, param2 in zip(child1.parameters(), child2.parameters()):
+              swap_mask = (torch.rand_like(param1) > 0.5)
+              temp = param1.data[swap_mask].clone()
+              param1.data[swap_mask] = param2.data[swap_mask]
+              param2.data[swap_mask] = temp
 
             # todo: ask whether it's correct to add new generation
             #  to previous population (roulette selection with new children)
@@ -98,8 +99,9 @@ class GeneticOptimizer(BaseOptimizer):
         self.set_fitness(x=x, y=y)
         self.select()
 
-        self.breed()
+        self.crossover()
         self.mutate()
+
         self.set_fitness(x=x, y=y)
 
         return self.best_model

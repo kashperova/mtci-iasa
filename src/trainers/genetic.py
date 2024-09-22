@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from torch import nn
 from tqdm.auto import tqdm
@@ -29,23 +29,28 @@ class GeneticTrainer(BaseTrainer):
         )
         self.optimizer = optimizer
 
-    def train(self) -> nn.Module:
-        for i in tqdm(range(self.hyperparams["num_generations"]), desc="Training"):
+    def train(self, verbose: Optional[bool] = True) -> nn.Module:
+        for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
             inputs, labels = self.train_dataset.features, self.train_dataset.labels
             self.model = self.optimizer.run(inputs, labels)
-            loss = self.loss(self.model(inputs), labels)
+            self.model.eval()
+            train_loss = self.loss(self.model(inputs), labels).item()
+            self.train_losses.append(train_loss)
 
-            print(
-                f'Generation [{i + 1}/{self.hyperparams["num_generations"]}] loss: {loss}',
-                flush=True,
-            )
+            if verbose:
+                print(
+                    f'Epoch [{i + 1}/{self.hyperparams["epochs"]}] loss: {train_loss}',
+                    flush=True,
+                )
 
-        self.eval()
+            self.eval(verbose)
 
         return self.model
 
-    def eval(self):
-        self.model.eval()
-        inputs, labels = self.eval_dataset.features, self.eval_dataset.labels
-        eval_loss = self.loss(self.model(inputs), labels)
-        print(f"Validation loss: {eval_loss}", flush=True)
+    def eval(self, verbose: Optional[bool] = True):
+        if verbose is True:
+            self.model.eval()
+            inputs, labels = self.eval_dataset.features, self.eval_dataset.labels
+            eval_loss = self.loss(self.model(inputs), labels).item()
+            self.eval_losses.append(eval_loss)
+            print(f"Validation loss: {eval_loss}", flush=True)
