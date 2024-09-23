@@ -32,9 +32,8 @@ class GeneticTrainer(BaseTrainer):
     def train(self, verbose: Optional[bool] = True) -> nn.Module:
         for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
             inputs, labels = self.train_dataset.features, self.train_dataset.labels
-            self.model = self.optimizer.run(inputs, labels)
+            self.model, train_loss = self.optimizer.run(inputs, labels)
             self.model.eval()
-            train_loss = self.loss(self.model(inputs), labels).item()
             self.train_losses.append(train_loss)
 
             if verbose:
@@ -48,9 +47,10 @@ class GeneticTrainer(BaseTrainer):
         return self.model
 
     def eval(self, verbose: Optional[bool] = True):
+        self.model.eval()
+        inputs, labels = self.eval_dataset.features, self.eval_dataset.labels
+        eval_loss = self.loss(self.model(inputs), labels).item()
+        self.eval_losses.append(eval_loss)
+
         if verbose is True:
-            self.model.eval()
-            inputs, labels = self.eval_dataset.features, self.eval_dataset.labels
-            eval_loss = self.loss(self.model(inputs), labels).item()
-            self.eval_losses.append(eval_loss)
             print(f"Validation loss: {eval_loss}", flush=True)

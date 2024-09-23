@@ -3,3 +3,6 @@
 
 .idea/vcs.xml
 **/.idea/
+
+**/notebooks/.ipynb_checkpoints
+**/notebooks/iframe_figures
