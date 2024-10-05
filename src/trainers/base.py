@@ -1,12 +1,12 @@
+import os
 from typing import Callable, Union, Dict, Any, Optional
 
 import torch
 import plotly.graph_objects as go
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from config.train_config import BaseTrainConfig
-from utils import CustomDataset
 
 
 class BaseTrainer:
@@ -14,8 +14,8 @@ class BaseTrainer:
         self,
         model: Union[nn.Module, Callable],
         loss: Callable,
-        train_dataset: CustomDataset,
-        eval_dataset: CustomDataset,
+        train_dataset: Dataset,
+        eval_dataset: Dataset,
         config: BaseTrainConfig,
         save_dir: Optional[str] = None,
     ) -> None:
@@ -25,6 +25,7 @@ class BaseTrainer:
         self.eval_dataset = eval_dataset
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.config = config
+        self.save_dir = os.getcwd() if save_dir is None else save_dir
 
         self.train_losses = []
         self.eval_losses = []
@@ -48,11 +49,11 @@ class BaseTrainer:
     def train(self):
         raise NotImplementedError
 
-    def eval(self):
+    def eval(self, model: nn.Module):
         raise NotImplementedError
 
     def save(self):
-        pass
+        raise NotImplementedError
 
     def plot_losses(self):
         fig = go.Figure()
