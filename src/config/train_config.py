@@ -10,3 +10,5 @@ class BaseTrainConfig:
 
 class GeneticConfig(BaseTrainConfig):
     epochs: int = 500
+    train_batch_size: int = 32
+    eval_batch_size: int = 64

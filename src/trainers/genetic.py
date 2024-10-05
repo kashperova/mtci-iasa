@@ -1,12 +1,14 @@
+import os
 from typing import Callable, Optional
 
+import torch
 from torch import nn
+from torch.utils.data import Dataset
 from tqdm.auto import tqdm
 
 from config.train_config import BaseTrainConfig
 from optimizers.genetic import GeneticOptimizer
 from trainers.base import BaseTrainer
-from utils import CustomDataset
 
 
 class GeneticTrainer(BaseTrainer):
@@ -15,8 +17,8 @@ class GeneticTrainer(BaseTrainer):
         model: nn.Module,
         loss: Callable,
         optimizer: GeneticOptimizer,
-        train_dataset: CustomDataset,
-        eval_dataset: CustomDataset,
+        train_dataset: Dataset,
+        eval_dataset: Dataset,
         config: BaseTrainConfig,
     ) -> None:
 
@@ -30,10 +32,11 @@ class GeneticTrainer(BaseTrainer):
         self.optimizer = optimizer
 
     def train(self, verbose: Optional[bool] = True) -> nn.Module:
+        best_loss = float("inf")
+
         for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
-            inputs, labels = self.train_dataset.features, self.train_dataset.labels
-            self.model, train_loss = self.optimizer.run(inputs, labels)
-            self.model.eval()
+            inputs, labels = map(torch.cat, zip(*[(x, y) for x, y in self.train_loader]))
+            model, train_loss = self.optimizer.run(inputs, labels)
             self.train_losses.append(train_loss)
 
             if verbose:
@@ -42,15 +45,24 @@ class GeneticTrainer(BaseTrainer):
                     flush=True,
                 )
 
-            self.eval(verbose)
+            eval_loss = self.eval(model, verbose)
+
+            if eval_loss < best_loss:
+                best_loss = eval_loss
+                self.model = model
 
         return self.model
 
-    def eval(self, verbose: Optional[bool] = True):
-        self.model.eval()
-        inputs, labels = self.eval_dataset.features, self.eval_dataset.labels
-        eval_loss = self.loss(self.model(inputs), labels).item()
+    def eval(self, model: nn.Module, verbose: Optional[bool] = True) -> float:
+        model.eval()
+        inputs, labels = map(torch.cat, zip(*[(x, y) for x, y in self.eval_loader]))
+        eval_loss = self.loss(model(inputs), labels).item()
         self.eval_losses.append(eval_loss)
 
         if verbose is True:
             print(f"Validation loss: {eval_loss}", flush=True)
+
+        return eval_loss
+
+    def save(self):
+        torch.save(self.model.state_dict(), os.path.join(self.save_dir, "model.pth"))
