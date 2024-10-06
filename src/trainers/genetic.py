@@ -18,6 +18,7 @@ class GeneticTrainer(BaseTrainer):
         train_dataset: CustomDataset,
         eval_dataset: CustomDataset,
         config: BaseTrainConfig,
+        num_of_param_snapshots: int = 10
     ) -> None:
 
         super(GeneticTrainer, self).__init__(
@@ -28,6 +29,8 @@ class GeneticTrainer(BaseTrainer):
             config=config,
         )
         self.optimizer = optimizer
+        self.num_of_param_snapshots = num_of_param_snapshots
+        self.param_snapshots = []
 
     def train(self, verbose: Optional[bool] = True) -> nn.Module:
         for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
@@ -41,7 +44,9 @@ class GeneticTrainer(BaseTrainer):
                     f'Epoch [{i + 1}/{self.hyperparams["epochs"]}] loss: {train_loss}',
                     flush=True,
                 )
-
+            if not i%(self.hyperparams["epochs"]/self.num_of_param_snapshots):
+                self.param_snapshots.append({name: param.data.clone() for name, param in self.model.named_parameters()})
+            
             self.eval(verbose)
 
         return self.model
