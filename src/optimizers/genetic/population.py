@@ -1,5 +1,7 @@
 from typing import Callable, List, Tuple
-
+import numpy as np
+from scipy.spatial.distance import pdist
+from scipy.stats import tstd
 from torch import nn
 from torch import Tensor
 
@@ -14,6 +16,16 @@ class Population:
     @property
     def scores(self) -> List[float]:
         return [ind.fitness for ind in self.individuals]
+
+    @property
+    def fitness_deviation(self) -> float:
+        return tstd(self.scores)
+
+    @property
+    def genome_deviation(self) -> float:
+        distances = pdist([ind.genome for ind in self.individuals])
+        std_dev = tstd(distances)
+        return std_dev
 
     @property
     def best(self) -> Tuple[nn.Module, float]:
