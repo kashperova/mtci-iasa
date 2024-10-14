@@ -1,9 +1,10 @@
 from copy import deepcopy
-from typing import Optional, Callable, Tuple
+from typing import Optional, Tuple
 
-from torch import nn
 from torch import Tensor
 
+from models.base import BaseModel
+from models.losses.base import BaseLoss
 from optimizers.base import BaseOptimizer
 from optimizers.genetic.operators import GeneticOperators
 from optimizers.genetic.population import Population
@@ -12,8 +13,8 @@ from optimizers.genetic.population import Population
 class GeneticOptimizer(BaseOptimizer):
     def __init__(
         self,
-        model: nn.Module,
-        loss_fn: Callable,
+        model: BaseModel,
+        loss_fn: BaseLoss,
         population_size: int,
         crossover_rate: float,
         mutation_rate: float,
@@ -35,7 +36,7 @@ class GeneticOptimizer(BaseOptimizer):
         self.operators = GeneticOperators(loss_fn=self.loss_fn)
         self.runs = 0
 
-    def run(self, x: Tensor, y: Tensor) -> Tuple[nn.Module, float]:
+    def run(self, x: Tensor, y: Tensor) -> Tuple[BaseModel, float]:
         if self.runs == 0:
             self.population.evaluate(x, y)
 
