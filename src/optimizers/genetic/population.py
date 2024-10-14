@@ -1,15 +1,15 @@
-from typing import Callable, List, Tuple
-import numpy as np
+from typing import List, Tuple
 from scipy.spatial.distance import pdist
 from scipy.stats import tstd
-from torch import nn
 from torch import Tensor
 
+from models.base import BaseModel
+from models.losses.base import BaseLoss
 from optimizers.genetic.individual import Individual
 
 
 class Population:
-    def __init__(self, size: int, model: nn.Module, loss_fn: Callable):
+    def __init__(self, size: int, model: BaseModel, loss_fn: BaseLoss):
         self.size = size
         self.individuals = [Individual(model, loss_fn) for _ in range(self.size)]
 
@@ -28,7 +28,7 @@ class Population:
         return std_dev
 
     @property
-    def best(self) -> Tuple[nn.Module, float]:
+    def best(self) -> Tuple[BaseModel, float]:
         best_fitness = max(self.scores)
         best_model = max(self.individuals, key=lambda ind: ind.fitness).to_model()
         return best_model, -best_fitness

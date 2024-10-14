@@ -1,28 +1,29 @@
 from copy import deepcopy
-from typing import Callable
 
 import torch
-from torch import nn
 from torch import Tensor
+
+from models.base import BaseModel
+from models.losses.base import BaseLoss
 
 
 class Individual(object):
-    def __init__(self, model: nn.Module, loss_fn: Callable):
+    def __init__(self, model: BaseModel, loss_fn: BaseLoss):
         self.model = deepcopy(model)
         self.loss_fn = loss_fn
         self.genome = self.to_vector()
         self.fitness = None
         self.init_weights()
 
-    def init_weights(self) -> nn.Module:
+    def init_weights(self) -> BaseModel:
         for param in self.model.parameters():
-            param.data = torch.randn(param.size())
+            param.data = torch.randn_like(param)
         return self.model
 
     def to_vector(self) -> Tensor:
         return torch.cat([param.data.view(-1) for param in self.model.parameters()])
 
-    def to_model(self) -> nn.Module:
+    def to_model(self) -> BaseModel:
         idx = 0
         for param in self.model.parameters():
             param.data = (
@@ -34,10 +35,10 @@ class Individual(object):
 
     def evaluate(self, x: Tensor, y: Tensor) -> float:
         self.to_model()
-        self.model.eval()
 
         with torch.no_grad():
-            loss = self.loss_fn(self.model(x), y)
+            y_hat = self.model(x)
+            loss = self.loss_fn.loss(y, y_hat)
 
-        self.fitness = -loss.item()
+        self.fitness = -loss
         return self.fitness

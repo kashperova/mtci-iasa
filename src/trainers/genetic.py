@@ -1,12 +1,12 @@
-import os
-from typing import Callable, Optional
+from typing import Optional
 
 import torch
-from torch import nn
 from torch.utils.data import Dataset
 from tqdm.auto import tqdm
 
 from config.train_config import BaseTrainConfig
+from models.base import BaseModel
+from models.losses.base import BaseLoss
 from optimizers.genetic import GeneticOptimizer
 from trainers.base import BaseTrainer
 
@@ -14,8 +14,8 @@ from trainers.base import BaseTrainer
 class GeneticTrainer(BaseTrainer):
     def __init__(
         self,
-        model: nn.Module,
-        loss: Callable,
+        model: BaseModel,
+        loss: BaseLoss,
         optimizer: GeneticOptimizer,
         train_dataset: Dataset,
         eval_dataset: Dataset,
@@ -31,7 +31,7 @@ class GeneticTrainer(BaseTrainer):
         )
         self.optimizer = optimizer
 
-    def train(self, verbose: Optional[bool] = True) -> nn.Module:
+    def train(self, verbose: Optional[bool] = True) -> BaseModel:
         best_loss = float("inf")
 
         for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
@@ -53,16 +53,12 @@ class GeneticTrainer(BaseTrainer):
 
         return self.model
 
-    def eval(self, model: nn.Module, verbose: Optional[bool] = True) -> float:
-        model.eval()
+    def eval(self, model: BaseModel, verbose: Optional[bool] = True) -> float:
         inputs, labels = map(torch.cat, zip(*[(x, y) for x, y in self.eval_loader]))
-        eval_loss = self.loss(model(inputs), labels).item()
+        eval_loss = self.loss.loss(model(inputs), labels)
         self.eval_losses.append(eval_loss)
 
         if verbose is True:
             print(f"Validation loss: {eval_loss}", flush=True)
 
         return eval_loss
-
-    def save(self):
-        torch.save(self.model.state_dict(), os.path.join(self.save_dir, "model.pth"))

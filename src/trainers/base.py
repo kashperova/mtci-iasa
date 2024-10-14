@@ -1,23 +1,26 @@
 import os
-from typing import Callable, Union, Dict, Any, Optional
+import pickle
+from typing import Dict, Any, Optional
 
 import torch
 import plotly.graph_objects as go
-from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from config.train_config import BaseTrainConfig
+from models.base import BaseModel
+from models.losses.base import BaseLoss
 
 
 class BaseTrainer:
     def __init__(
         self,
-        model: Union[nn.Module, Callable],
-        loss: Callable,
+        model: BaseModel,
+        loss: BaseLoss,
         train_dataset: Dataset,
         eval_dataset: Dataset,
         config: BaseTrainConfig,
         save_dir: Optional[str] = None,
+        save_name: Optional[str] = "model.pth",
     ) -> None:
         self.model = model
         self.loss = loss
@@ -26,6 +29,7 @@ class BaseTrainer:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.config = config
         self.save_dir = os.getcwd() if save_dir is None else save_dir
+        self.save_name = save_name
 
         self.train_losses = []
         self.eval_losses = []
@@ -49,11 +53,11 @@ class BaseTrainer:
     def train(self):
         raise NotImplementedError
 
-    def eval(self, model: nn.Module):
+    def eval(self, model: BaseModel):
         raise NotImplementedError
 
     def save(self):
-        raise NotImplementedError
+        self.model.serialize(os.path.join(self.save_dir, self.save_name))
 
     def plot_losses(self):
         fig = go.Figure()

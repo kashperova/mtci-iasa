@@ -1,13 +1,14 @@
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, List, Tuple
 
 import torch
 
+from models.losses.base import BaseLoss
 from optimizers.genetic.individual import Individual
 from optimizers.genetic.population import Population
 
 
 class GeneticOperators:
-    def __init__(self, loss_fn: Callable):
+    def __init__(self, loss_fn: BaseLoss):
         self.loss_fn = loss_fn
 
     @classmethod
