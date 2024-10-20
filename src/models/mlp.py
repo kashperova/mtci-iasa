@@ -40,4 +40,10 @@ class MLP(BaseModel):
         data = torch.load(path)
         model = cls(data['input_size'], data['output_size'])
         model.layers = data['layers']
+
+        for layer in model.layers:
+            if isinstance(layer, LinearLayer):
+                layer.velocity_w = torch.zeros_like(layer.weights)
+                layer.velocity_b = torch.zeros_like(layer.biases)
+
         return model

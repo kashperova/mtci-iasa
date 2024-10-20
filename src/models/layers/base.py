@@ -11,5 +11,5 @@ class BaseLayer:
     def forward(self, x: Tensor):
         raise NotImplementedError
 
-    def backward(self, grad_output: Tensor, lr: float) -> Tensor:
+    def backward(self, grad_output: Tensor, lr: float, momentum: float) -> Tensor:
         raise NotImplementedError
