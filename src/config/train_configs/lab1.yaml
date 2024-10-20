@@ -1,0 +1,7 @@
+epochs: 500
+train_batch_size: 32
+eval_batch_size: 64
+population_size: 100
+tournament_size: 3
+crossover_rate: 0.9
+mutation_rate: 0.01

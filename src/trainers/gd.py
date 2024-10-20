@@ -2,10 +2,10 @@ import os
 from typing import Optional
 
 import torch
+from omegaconf import DictConfig
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from config.train_config import BaseTrainConfig
 from models import MLP
 from models.base import BaseModel
 from models.losses.base import BaseLoss
@@ -17,10 +17,9 @@ class GDTrainer(BaseTrainer):
         self,
         model: BaseModel,
         loss: BaseLoss,
-        lr: float,
         train_dataset: Dataset,
         eval_dataset: Dataset,
-        config: BaseTrainConfig,
+        config: DictConfig,
     ):
         super(GDTrainer, self).__init__(
             model=model,
@@ -29,19 +28,20 @@ class GDTrainer(BaseTrainer):
             eval_dataset=eval_dataset,
             config=config,
         )
-        self.lr = lr
+        self.lr = self.config.lr
+        self.momentum = self.config.momentum
 
     def train(self, verbose: Optional[bool] = True) -> BaseModel:
         best_loss = float("inf")
 
-        for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
+        for i in tqdm(range(self.config.epochs), desc="Training"):
             train_loss = 0.0
             for inputs, targets in self.train_loader:
                 outputs = self.model.forward(inputs)
                 loss = self.loss.loss(y=targets, y_hat=outputs)
 
                 loss_grad = self.loss.backward(y=targets, y_hat=outputs)
-                self.model.backward(loss_grad, self.lr)
+                self.model.backward(loss_grad, lr=self.lr, momentum=self.momentum)
 
                 train_loss += loss
 
@@ -50,7 +50,7 @@ class GDTrainer(BaseTrainer):
 
             if verbose:
                 print(
-                    f'Epoch [{i + 1}/{self.hyperparams["epochs"]}] loss: {train_loss}',
+                    f'Epoch [{i + 1}/{self.config.epochs}] loss: {train_loss}',
                     flush=True,
                 )
 

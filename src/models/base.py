@@ -25,12 +25,12 @@ class BaseModel:
     def __call__(self, x: Tensor):
         return self.forward(x)
 
-    def backward(self, loss_grad: Tensor, lr: float):
+    def backward(self, loss_grad: Tensor, lr: float, momentum: float):
         for layer in reversed(self.layers):
             if isinstance(layer, ReLU):
                 loss_grad = layer.backward(loss_grad)
             elif isinstance(layer, LinearLayer):
-                loss_grad = layer.backward(loss_grad, lr)
+                loss_grad = layer.backward(loss_grad, lr, momentum)
 
     def serialize(self, path: str):
         raise NotImplementedError

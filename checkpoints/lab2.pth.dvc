@@ -1,0 +1,5 @@
+outs:
+- md5: 0bd76c598242bce013826169350685cd
+  size: 52736136
+  hash: md5
+  path: lab2.pth

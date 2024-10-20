@@ -38,7 +38,7 @@ class Individual(object):
 
         with torch.no_grad():
             y_hat = self.model(x)
-            loss = self.loss_fn.loss(y, y_hat)
+            loss = self.loss_fn.loss(y=y, y_hat=y_hat)
 
         self.fitness = -loss
         return self.fitness

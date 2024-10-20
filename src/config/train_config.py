@@ -1,20 +1,21 @@
-from typing import Dict, Any
+from dataclasses import dataclass
 
 
-class BaseTrainConfig:
-    @property
-    def params(self) -> Dict[str, Any]:
-        attrs = set(self.__class__.__dict__.keys()) - set(self.__dict__.keys())
-        return {attr: getattr(self, attr) for attr in attrs}
-
-
-class GeneticConfig(BaseTrainConfig):
-    epochs: int = 450
+@dataclass
+class GeneticConfig:
+    epochs: int = 500
     train_batch_size: int = 32
     eval_batch_size: int = 64
+    population_size: int = 100
+    tournament_size: int = 3
+    crossover_rate: float = 0.9
+    mutation_rate: float = 0.01
 
 
-class GDConfig(BaseTrainConfig):
+@dataclass
+class GDConfig:
     epochs: int = 50
     train_batch_size: int = 16
     eval_batch_size: int = 64
+    momentum: float = 0.85
+    lr: float = 0.001

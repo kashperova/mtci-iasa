@@ -1,10 +1,10 @@
 from typing import Optional
 
 import torch
+from omegaconf import DictConfig
 from torch.utils.data import Dataset
 from tqdm.auto import tqdm
 
-from config.train_config import BaseTrainConfig
 from models.base import BaseModel
 from models.losses.base import BaseLoss
 from optimizers.genetic import GeneticOptimizer
@@ -16,12 +16,10 @@ class GeneticTrainer(BaseTrainer):
         self,
         model: BaseModel,
         loss: BaseLoss,
-        optimizer: GeneticOptimizer,
         train_dataset: Dataset,
         eval_dataset: Dataset,
-        config: BaseTrainConfig,
+        config: DictConfig,
     ) -> None:
-
         super(GeneticTrainer, self).__init__(
             model=model,
             loss=loss,
@@ -29,19 +27,26 @@ class GeneticTrainer(BaseTrainer):
             eval_dataset=eval_dataset,
             config=config,
         )
-        self.optimizer = optimizer
+        self.optimizer = GeneticOptimizer(
+            model=model,
+            loss_fn=loss,
+            population_size=self.config.population_size,
+            crossover_rate=self.config.crossover_rate,
+            mutation_rate=self.config.mutation_rate,
+            tournament_size=self.config.tournament_size,
+        )
 
     def train(self, verbose: Optional[bool] = True) -> BaseModel:
         best_loss = float("inf")
 
-        for i in tqdm(range(self.hyperparams["epochs"]), desc="Training"):
+        for i in tqdm(range(self.config.epochs), desc="Training"):
             inputs, labels = map(torch.cat, zip(*[(x, y) for x, y in self.train_loader]))
             model, train_loss = self.optimizer.run(inputs, labels)
             self.train_losses.append(train_loss)
 
             if verbose:
                 print(
-                    f'Epoch [{i + 1}/{self.hyperparams["epochs"]}] loss: {train_loss}',
+                    f'Epoch [{i + 1}/{self.config.epochs}] loss: {train_loss}',
                     flush=True,
                 )
 
@@ -55,7 +60,7 @@ class GeneticTrainer(BaseTrainer):
 
     def eval(self, model: BaseModel, verbose: Optional[bool] = True) -> float:
         inputs, labels = map(torch.cat, zip(*[(x, y) for x, y in self.eval_loader]))
-        eval_loss = self.loss.loss(model(inputs), labels)
+        eval_loss = self.loss.loss(y_hat=model(inputs), y=labels)
         self.eval_losses.append(eval_loss)
 
         if verbose is True:
