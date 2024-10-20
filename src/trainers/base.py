@@ -29,7 +29,6 @@ class BaseTrainer:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.config = config
         self.save_dir = os.getcwd() if save_dir is None else save_dir
-        self.save_name = save_name
 
         self.train_losses = []
         self.eval_losses = []
