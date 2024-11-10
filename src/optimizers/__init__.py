@@ -1,1 +1,2 @@
+from optimizers.conjugated import ConjugatedOptimizer
 from optimizers.genetic import GeneticOptimizer
